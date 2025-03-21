@@ -1,10 +1,17 @@
 {
-  "name": "Wiser AI Assistant",
-  "short_name": "Wiser",
+  "name": "Onnesha AI Assistant",
+  "short_name": "Onnesha",
   "description": "AI assistant optimized for Bangla and English speakers",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3b82f6"
+  "background_color": "#1A1B1E",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/placeholder-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
 }
 

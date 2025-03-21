@@ -19,6 +19,15 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
   const { theme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  
+  // Debug content
+  useEffect(() => {
+    console.log("MarkdownRenderer content:", {
+      received: !!content,
+      contentLength: content?.length,
+      contentSample: content?.substring(0, 50) + "...",
+    });
+  }, [content]);
 
   useEffect(() => {
     setMounted(true)
@@ -32,6 +41,11 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
 
   if (!mounted) {
     return <div className={cn("markdown", className)}>{content}</div>
+  }
+  
+  if (!content) {
+    console.warn("MarkdownRenderer received empty content");
+    return <div className={cn("markdown text-sm text-gray-500", className)}>Empty response</div>;
   }
 
   return (

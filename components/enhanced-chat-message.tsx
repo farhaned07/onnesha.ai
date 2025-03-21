@@ -31,6 +31,15 @@ export default function EnhancedChatMessage({
   const [showActions, setShowActions] = useState(false)
   const messageRef = useRef<HTMLDivElement>(null)
   const [isHovered, setIsHovered] = useState(false)
+  
+  // Debug message content
+  useEffect(() => {
+    console.log("Rendering message:", { 
+      role: message.role,
+      content: message.content?.substring(0, 50) + "...", 
+      contentLength: message.content?.length 
+    });
+  }, [message]);
 
   // Animation on mount
   useEffect(() => {

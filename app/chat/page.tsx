@@ -108,19 +108,28 @@ export default function ChatPage() {
   const { messages, input, handleInputChange, handleSubmit, isLoading, append, error, setMessages, reload } = useChat({
     api: "/api/chat",
     onError: (error) => {
+      console.error("Chat API error:", error);
       toast({
         variant: "destructive",
         title: language === "en" ? "An error occurred" : "একটি ত্রুটি ঘটেছে",
         description: error.message,
       })
     },
+    onResponse: (response) => {
+      console.log("Chat API response status:", response.status);
+      // Log any issues with the response
+      if (!response.ok) {
+        console.error("Chat API response not OK:", response.status, response.statusText);
+      }
+    },
+    onFinish: () => {
+      console.log("Chat AI response finished, messages:", messages);
+      if (showWelcome) setShowWelcome(false)
+      if (enableWebSearch) setIsSearching(false)
+    },
     body: {
       personality: "balanced",
       enableWebSearch,
-    },
-    onFinish: () => {
-      if (showWelcome) setShowWelcome(false)
-      if (enableWebSearch) setIsSearching(false)
     },
   })
 
@@ -289,41 +298,53 @@ export default function ChatPage() {
     
     if (!input.trim()) return
     
+    // Log submission attempt
+    console.log("Submitting message:", input.trim().substring(0, 50) + "...");
+    
     if (enableWebSearch) {
       setIsSearching(true)
     }
     
-    // If offline, add to queue and show optimistic UI update
-    if (!isOnline) {
-      // Add to queue for later sending
-      const newQueuedMessage = {
-        content: input.trim(),
-        timestamp: Date.now()
-      }
-      setMessageQueue(prev => [...prev, newQueuedMessage])
-      
-      // Add optimistic message to UI
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `temp-${Date.now()}`,
-          content: input.trim(),
-          role: 'user'
-        },
-        {
-          id: `temp-response-${Date.now()}`,
-          content: language === 'en' 
-            ? "You're currently offline. This message will be processed when you reconnect."
-            : "আপনি বর্তমানে অফলাইন আছেন। আপনি পুনরায় সংযোগ করলে এই বার্তাটি প্রক্রিয়া করা হবে।",
-          role: 'assistant'
-        }
-      ] as Message[])
-      
-      // Clear input
-      handleInputChange({ target: { value: '' } } as React.ChangeEvent<HTMLTextAreaElement>)
-    } else {
+    try {
       // Normal online submission
       handleSubmit(e)
+      
+      // Debug if messages update after submission
+      setTimeout(() => {
+        console.log("Messages after submission:", messages.length);
+      }, 1000);
+    } catch (error) {
+      console.error("Error submitting message:", error);
+      
+      // If there's an error or we're offline, add to queue
+      if (!isOnline) {
+        // Add to queue for later sending
+        const newQueuedMessage = {
+          content: input.trim(),
+          timestamp: Date.now()
+        }
+        setMessageQueue(prev => [...prev, newQueuedMessage])
+        
+        // Add optimistic message to UI
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `temp-${Date.now()}`,
+            content: input.trim(),
+            role: 'user'
+          },
+          {
+            id: `temp-response-${Date.now()}`,
+            content: language === 'en' 
+              ? "You're currently offline. This message will be processed when you reconnect."
+              : "আপনি বর্তমানে অফলাইন আছেন। আপনি পুনরায় সংযোগ করলে এই বার্তাটি প্রক্রিয়া করা হবে।",
+            role: 'assistant'
+          }
+        ] as Message[])
+        
+        // Clear input manually since we're not using handleSubmit
+        handleInputChange({ target: { value: '' } } as React.ChangeEvent<HTMLTextAreaElement>)
+      }
     }
   }
 
