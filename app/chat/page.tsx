@@ -104,27 +104,26 @@ export default function ChatPage() {
     }
   }, [isMobile])
 
-  // Monitor network status
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true)
-      // Try to send queued messages when back online
-      processMessageQueue()
-    }
-    
-    const handleOffline = () => {
-      setIsOnline(false)
-    }
-    
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [])
-  
+  // Initialize chat first
+  const { messages, input, handleInputChange, handleSubmit, isLoading, append, error, setMessages, reload } = useChat({
+    api: "/api/chat",
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: language === "en" ? "An error occurred" : "একটি ত্রুটি ঘটেছে",
+        description: error.message,
+      })
+    },
+    body: {
+      personality: "balanced",
+      enableWebSearch,
+    },
+    onFinish: () => {
+      if (showWelcome) setShowWelcome(false)
+      if (enableWebSearch) setIsSearching(false)
+    },
+  })
+
   // Process queued messages when back online
   const processMessageQueue = useCallback(async () => {
     if (!isOnline || messageQueue.length === 0) return
@@ -149,30 +148,26 @@ export default function ChatPage() {
     }
   }, [isOnline, messageQueue, append])
 
-  // Update monitor network status useEffect with processMessageQueue dependency
+  // Monitor network status
   useEffect(() => {
-    // This will fix the circular dependency warning - adding a second useEffect that depends on processMessageQueue
-    // No code needed here, just establishing the dependency connection
+    const handleOnline = () => {
+      setIsOnline(true)
+      // Try to send queued messages when back online
+      processMessageQueue()
+    }
+    
+    const handleOffline = () => {
+      setIsOnline(false)
+    }
+    
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
   }, [processMessageQueue])
-
-  const { messages, input, handleInputChange, handleSubmit, isLoading, append, error, setMessages, reload } = useChat({
-    api: "/api/chat",
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: language === "en" ? "An error occurred" : "একটি ত্রুটি ঘটেছে",
-        description: error.message,
-      })
-    },
-    body: {
-      personality: "balanced",
-      enableWebSearch,
-    },
-    onFinish: () => {
-      if (showWelcome) setShowWelcome(false)
-      if (enableWebSearch) setIsSearching(false)
-    },
-  })
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
