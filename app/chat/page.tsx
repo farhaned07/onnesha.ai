@@ -162,7 +162,7 @@ export default function ChatPage() {
         variant: "destructive",
         title: language === "en" ? "An error occurred" : "একটি ত্রুটি ঘটেছে",
         description: error.message,
-      }),
+      })
     },
     body: {
       personality: "balanced",
