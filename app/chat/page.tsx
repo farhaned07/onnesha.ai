@@ -357,7 +357,7 @@ export default function ChatPage() {
 
   // Translation object based on selected language
   const t = {
-    welcome: language === "en" ? "Welcome to Onnesha AI" : "অন্বেষা এআই-এ স্বাগতম",
+    welcome: language === "en" ? "Hi 👋" : "হ্যালো 👋",
     helpLine:
       language === "en"
         ? "How can I assist you today?"

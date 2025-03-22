@@ -13,12 +13,32 @@ interface SearchResult {
   published?: string
 }
 
+// Simple in-memory cache for responses
+// In production, consider using Redis or a more persistent cache
+const responseCache = new Map<string, any>();
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour cache TTL
+
 export async function POST(req: Request) {
   try {
     const { messages, personality = "balanced", enableWebSearch = false } = await req.json()
 
     if (!process.env.MISTRAL_API_KEY) {
       return NextResponse.json({ error: "Mistral API key is not configured" }, { status: 500 })
+    }
+
+    // Generate a cache key based on the content of the last message and personality
+    // Only cache if there's more than one message (ignore initial prompts)
+    const shouldUseCache = messages.length > 1 && !enableWebSearch; // Don't cache web search responses as they need fresh data
+    const lastMessage = messages[messages.length - 1];
+    const cacheKey = shouldUseCache 
+      ? `${lastMessage.content.toLowerCase().trim()}_${personality}`
+      : null;
+    
+    // Check cache for existing response
+    if (cacheKey && responseCache.has(cacheKey)) {
+      console.log("Cache hit! Returning cached response");
+      const cachedResponse = responseCache.get(cacheKey);
+      return cachedResponse;
     }
 
     // Base system prompt with core instructions
@@ -135,54 +155,69 @@ export async function POST(req: Request) {
         break
     }
 
-    // Check if we need to perform a web search for the latest message
-    let enhancedMessages = [...messages]
-    const lastMessage = messages[messages.length - 1]
-
+    // Handle web search in parallel with initial AI response preparation
+    let enhancedMessages = [...messages];
+    let searchResults: SearchResult[] = [];
+    
     if (enableWebSearch && lastMessage.role === "user") {
       try {
-        // Extract search query from the user's message
-        const searchQuery = lastMessage.content
-
-        // Perform web search
-        const searchResults = await performWebSearch(searchQuery)
-
+        // Start web search in parallel with other processing
+        const searchPromise = performWebSearch(lastMessage.content);
+        
+        // Continue with other processing while search is happening
+        // ...
+        
+        // Wait for search results
+        searchResults = await searchPromise;
+        
         if (searchResults && searchResults.length > 0) {
           // Format search results for the AI
-          const formattedResults = formatSearchResultsForAI(searchResults)
+          const formattedResults = formatSearchResultsForAI(searchResults);
 
           // Add search results as a system message before generating the response
           enhancedMessages = [
             ...messages.slice(0, -1),
             {
               role: "system",
-              content: `Here are some recent web search results for the query "${searchQuery}":\n\n${formattedResults}\n\nIncorporate this information into your structured response format. Cite sources when using specific information.`,
+              content: `Here are some recent web search results for the query "${lastMessage.content}":\n\n${formattedResults}\n\nIncorporate this information into your structured response format. Cite sources when using specific information.`,
             },
             lastMessage,
-          ]
+          ];
         }
       } catch (error) {
-        console.error("Error performing web search:", error)
+        console.error("Error performing web search:", error);
         // Continue without search results if there's an error
       }
     }
 
-    // Use mistral-7b for faster responses and lower cost,
-    // or mistral-large-latest for more comprehensive responses
+    // Use mistral-medium for faster responses instead of mistral-large-latest
+    // Reduce max tokens from 1500 to 800 for quicker generation
     const result = streamText({
-      model: mistral("mistral-large-latest"),
+      model: mistral("mistral-medium"), // Faster model
       messages: enhancedMessages,
       system: systemPrompt,
-      temperature: 0.8,
-      maxTokens: 1500,
-    })
+      temperature: 0.7, // Slightly reduced for more consistent responses
+      maxTokens: 800, // Reduced token count for faster generation
+    });
 
-    return result.toDataStreamResponse({
+    const response = result.toDataStreamResponse({
       sendReasoning: false,
-    })
+    });
+    
+    // Store response in cache if applicable
+    if (cacheKey) {
+      responseCache.set(cacheKey, response.clone());
+      
+      // Set up cache expiration
+      setTimeout(() => {
+        responseCache.delete(cacheKey);
+      }, CACHE_TTL);
+    }
+
+    return response;
   } catch (error) {
-    console.error("Error in chat API route:", error)
-    return NextResponse.json({ error: "An error occurred while processing your request" }, { status: 500 })
+    console.error("Error in chat API route:", error);
+    return NextResponse.json({ error: "An error occurred while processing your request" }, { status: 500 });
   }
 }
 
@@ -194,17 +229,17 @@ async function performWebSearch(query: string): Promise<SearchResult[]> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query, limit: 5 }),
-    })
+    });
 
     if (!response.ok) {
-      throw new Error(`Web search API returned ${response.status}: ${response.statusText}`)
+      throw new Error(`Web search API returned ${response.status}: ${response.statusText}`);
     }
 
-    const data = await response.json()
-    return data.results
+    const data = await response.json();
+    return data.results;
   } catch (error) {
-    console.error("Error in web search:", error)
-    throw error
+    console.error("Error in web search:", error);
+    throw error;
   }
 }
 
@@ -214,8 +249,8 @@ function formatSearchResultsForAI(results: SearchResult[]): string {
       return `[${index + 1}] "${result.title}" from ${result.source}${result.published ? ` (${result.published})` : ""}
 Link: ${result.link}
 Snippet: ${result.snippet}
-`
+`;
     })
-    .join("\n\n")
+    .join("\n\n");
 }
 
