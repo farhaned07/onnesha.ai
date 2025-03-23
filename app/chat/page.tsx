@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { useChat } from "ai/react"
 import { Button } from "@/components/ui/button"
-import { ArrowUp, BookOpen, HelpCircle, BarChart3, Image, Code, Mic, Paperclip, Sparkles } from "lucide-react"
+import { ArrowUp, BookOpen, HelpCircle, BarChart3, Code, Mic, Paperclip, Sparkles, Search, Lightbulb, FileBox, HelpingHand, LineChart, BrainCircuit } from "lucide-react"
 import EnhancedChatMessage from "@/components/enhanced-chat-message"
 import FileUpload from "@/components/file-upload"
 import PaymentModal from "@/components/payment-modal"
@@ -41,19 +41,15 @@ export default function ChatPage() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [enableWebSearch, setEnableWebSearch] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
-
-  // Virtual keyboard detection for mobile
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false)
+  
+  // Optimized network status and device detection
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' && navigator.onLine)
+  const [messageQueue, setMessageQueue] = useState<{content: string, timestamp: number}[]>([])
   const [isMobile, setIsMobile] = useState(false)
   const [isLowEndDevice, setIsLowEndDevice] = useState(false)
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false)
   
-  // Network status tracking
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  )
-  const [messageQueue, setMessageQueue] = useState<{content: string, timestamp: number}[]>([])
-  
-  // Detect mobile device and low-end hardware
+  // Virtual keyboard detection for mobile
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
@@ -104,35 +100,102 @@ export default function ChatPage() {
     }
   }, [isMobile])
 
-  // Initialize chat first
-  const { messages, input, handleInputChange, handleSubmit, isLoading, append, error, setMessages, reload } = useChat({
-    api: "/api/chat",
-    onError: (error) => {
-      console.error("Chat API error:", error);
-      toast({
-        variant: "destructive",
-        title: language === "en" ? "An error occurred" : "একটি ত্রুটি ঘটেছে",
-        description: error.message,
-      })
-    },
-    onResponse: (response) => {
-      console.log("Chat API response status:", response.status);
-      // Log any issues with the response
-      if (!response.ok) {
-        console.error("Chat API response not OK:", response.status, response.statusText);
+  // Enhanced error handling for chat
+  const errorHandler = useCallback((error: Error) => {
+    console.error("Chat API error:", error);
+    toast({
+      variant: "destructive",
+      title: language === "en" ? "An error occurred" : "একটি ত্রুটি ঘটেছে",
+      description: error.message,
+    });
+    
+    // Try to recover the chat after error with shorter timeout (3s instead of 5s)
+    setTimeout(() => {
+      if (isLoading) {
+        console.log("Attempting recovery from stuck state");
+        setMessages(prevMessages => [...prevMessages]); // Force a re-render
       }
-    },
-    onFinish: () => {
-      console.log("Chat AI response finished, messages:", messages);
-      if (showWelcome) setShowWelcome(false)
-      if (enableWebSearch) setIsSearching(false)
-    },
+    }, 3000);
+  }, [language, toast]);
+  
+  // Optimize response handling
+  const responseHandler = useCallback((response: Response) => {
+    if (!response.ok) {
+      console.error(`Chat API error: ${response.status} ${response.statusText}`);
+    }
+  }, []);
+  
+  // Optimize message finishing handler
+  const finishHandler = useCallback((message: any) => {
+    if (showWelcome) setShowWelcome(false);
+    if (enableWebSearch) setIsSearching(false);
+    
+    // Use requestAnimationFrame for smoother scrolling
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    });
+  }, [showWelcome, enableWebSearch]);
+  
+  // Initialize chat with optimized handlers
+  const { 
+    messages, 
+    input, 
+    handleInputChange, 
+    handleSubmit, 
+    isLoading, 
+    append, 
+    error, 
+    setMessages, 
+    reload 
+  } = useChat({
+    api: "/api/chat",
+    onError: errorHandler,
+    onResponse: responseHandler,
+    onFinish: finishHandler,
     body: {
       personality: "balanced",
       enableWebSearch,
     },
-  })
-
+  });
+  
+  // Use memo for translations to prevent recalculations
+  const t = useMemo(() => ({
+    welcome: language === "en" ? "Hi 👋" : "হ্যালো 👋",
+    helpLine: language === "en" ? "How can I assist you today?" : "আমি আজ আপনাকে কীভাবে সাহায্য করতে পারি?",
+    placeholder: language === "en" ? "What do you want to know?" : "আপনি কী জানতে চান?",
+    send: language === "en" ? "Send" : "পাঠান",
+    reset: language === "en" ? "Reset Conversation" : "কথোপকথন রিসেট করুন",
+    info: language === "en" ? "About" : "সম্পর্কে",
+    options: language === "en" ? "Options" : "বিকল্পসমূহ",
+    loadingDots: language === "en" ? "..." : "...",
+    searchPlaceholder: language === "en" ? "Search conversations..." : "কথোপকথন খুঁজুন...",
+    newChat: language === "en" ? "New Chat" : "নতুন চ্যাট",
+    pinnedChats: language === "en" ? "Pinned" : "পিন করা",
+    today: language === "en" ? "Today" : "আজ",
+    yesterday: language === "en" ? "Yesterday" : "গতকাল",
+    older: language === "en" ? "Older" : "পুরোনো",
+    noChats: language === "en" ? "No chats yet" : "এখনো কোন চ্যাট নেই",
+    edit: language === "en" ? "Edit" : "সম্পাদনা",
+    delete: language === "en" ? "Delete" : "মুছুন",
+    pin: language === "en" ? "Pin" : "পিন",
+    unpin: language === "en" ? "Unpin" : "আনপিন",
+    share: language === "en" ? "Share" : "শেয়ার",
+    stopVoice: language === "en" ? "Stop Recording" : "রেকর্ডিং বন্ধ করুন",
+    tryAsking: language === "en" ? "Try asking about" : "সম্পর্কে জিজ্ঞাসা করুন",
+    regenerate: language === "en" ? "Regenerate" : "পুনঃতৈরি",
+    deepsearch: language === "en" ? "DeepSearch" : "ডিপসার্চ",
+    think: language === "en" ? "Think" : "চিন্তা",
+    research: language === "en" ? "Research" : "গবেষণা",
+    howto: language === "en" ? "How to" : "কিভাবে",
+    analyze: language === "en" ? "Analyze" : "বিশ্লেষণ",
+    code: language === "en" ? "Code" : "কোড",
+    browsing: language === "en" ? "Browsing" : "ব্রাউজিং",
+    terms: language === "en" ? "By using this service, you agree to our Terms of Service and Privacy Policy" : "এই পরিষেবা ব্যবহার করে, আপনি আমাদের পরিষেবার শর্তাবলী এবং গোপনীয়তা নীতি মেনে নিচ্ছেন",
+    you: language === "en" ? "You" : "আপনি",
+    ai: language === "en" ? "Onnesha AI" : "অন্বেষা এআই",
+    searching: language === "en" ? "Searching the web for the latest information..." : "সর্বশেষ তথ্যের জন্য ওয়েব অনুসন্ধান করছি...",
+  }), [language]); // Only recalculate when language changes
+  
   // Process queued messages when back online
   const processMessageQueue = useCallback(async () => {
     if (!isOnline || messageQueue.length === 0) return
@@ -157,32 +220,119 @@ export default function ChatPage() {
     }
   }, [isOnline, messageQueue, append])
 
-  // Monitor network status
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true)
-      // Try to send queued messages when back online
-      processMessageQueue()
+  // Optimized custom submit handler with debounce protection
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const handleCustomSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    
+    if (!input.trim() || isSubmitting) return
+    
+    setIsSubmitting(true);
+    
+    // Use timeout to prevent double-submissions
+    setTimeout(() => setIsSubmitting(false), 500);
+    
+    if (enableWebSearch) {
+      setIsSearching(true)
     }
     
-    const handleOffline = () => {
-      setIsOnline(false)
-    }
+    const currentInput = input.trim();
     
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
+    try {
+      // Use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      });
+      
+      const messageCountBefore = messages.length;
+      
+      // Submit the message
+      handleSubmit(e);
+      
+      // Optimized message tracking with shorter timeout
+      setTimeout(() => {
+        if (messageCountBefore === messages.length && !isLoading) {
+          console.log("Message count didn't change, manually adding message");
+          
+          // Force append user message
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `manual-${Date.now()}`,
+              content: currentInput,
+              role: 'user'
+            }
+          ]);
+          
+          // Try triggering a reload if needed
+          if (!isLoading) {
+            reload();
+          }
+        }
+      }, 500); // Reduced from 1000ms to 500ms
+    } catch (error) {
+      console.error("Error submitting message:", error);
+      
+      if (!isOnline) {
+        // Offline handling
+        const newQueuedMessage = {
+          content: currentInput,
+          timestamp: Date.now()
+        }
+        setMessageQueue(prev => [...prev, newQueuedMessage])
+        
+        // Optimistic UI update
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `temp-${Date.now()}`,
+            content: currentInput,
+            role: 'user'
+          },
+          {
+            id: `temp-response-${Date.now()}`,
+            content: language === 'en' 
+              ? "You're currently offline. This message will be processed when you reconnect."
+              : "আপনি বর্তমানে অফলাইন আছেন। আপনি পুনরায় সংযোগ করলে এই বার্তাটি প্রক্রিয়া করা হবে।",
+            role: 'assistant'
+          }
+        ]);
+        
+        // Clear input
+        handleInputChange({ target: { value: '' } } as React.ChangeEvent<HTMLTextAreaElement>);
+      }
     }
-  }, [processMessageQueue])
+  }, [input, isSubmitting, enableWebSearch, messages.length, isLoading, handleSubmit, reload, isOnline, language, handleInputChange]);
 
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isLoading])
-
+  // Optimize message rendering by limiting animations
+  const shouldAnimate = useMemo(() => !isLowEndDevice && messages.length < 50, [isLowEndDevice, messages.length]);
+  
+  // Get animation settings based on device capabilities
+  const getAnimationSettings = useCallback(() => {
+    if (isLowEndDevice || messages.length > 30) {
+      // Minimal animations for low-end devices or many messages
+      return {
+        initial: { opacity: 0.8 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.1 }
+      }
+    }
+    
+    // Full animations for capable devices with fewer messages
+    return {
+      initial: { opacity: 0, y: 20 },
+      animate: { opacity: 1, y: 0 },
+      exit: { opacity: 0, y: -20 },
+      transition: { 
+        type: "spring", 
+        stiffness: 500, 
+        damping: 30 
+      }
+    }
+  }, [isLowEndDevice, messages.length]);
+  
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark")
   }
@@ -256,10 +406,20 @@ export default function ChatPage() {
   }
 
   const handlePromptSelect = (promptText: string) => {
-    handleInputChange({ target: { value: promptText } } as React.ChangeEvent<HTMLTextAreaElement>)
-    if (inputRef.current) {
-      inputRef.current.focus()
-    }
+    if (!promptText.trim()) return;
+    
+    // Set the input text first (to show what was selected)
+    handleInputChange({ target: { value: promptText } } as React.ChangeEvent<HTMLTextAreaElement>);
+    
+    // Then submit it after a small delay to ensure UI updates
+    setTimeout(() => {
+      if (inputRef.current) {
+        const form = inputRef.current.closest('form');
+        if (form) {
+          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+      }
+    }, 100);
   }
 
   const handleVoiceInput = (transcript: string) => {
@@ -292,117 +452,17 @@ export default function ChatPage() {
     setEnableWebSearch(enabled)
   }
 
-  // Send message with offline support
-  const handleCustomSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    
-    if (!input.trim()) return
-    
-    // Log submission attempt
-    console.log("Submitting message:", input.trim().substring(0, 50) + "...");
-    
-    if (enableWebSearch) {
-      setIsSearching(true)
-    }
-    
-    try {
-      // Normal online submission
-      handleSubmit(e)
-      
-      // Debug if messages update after submission
-      setTimeout(() => {
-        console.log("Messages after submission:", messages.length);
-      }, 1000);
-    } catch (error) {
-      console.error("Error submitting message:", error);
-      
-      // If there's an error or we're offline, add to queue
-      if (!isOnline) {
-        // Add to queue for later sending
-        const newQueuedMessage = {
-          content: input.trim(),
-          timestamp: Date.now()
-        }
-        setMessageQueue(prev => [...prev, newQueuedMessage])
-        
-        // Add optimistic message to UI
-        setMessages(prev => [
-          ...prev,
-          {
-            id: `temp-${Date.now()}`,
-            content: input.trim(),
-            role: 'user'
-          },
-          {
-            id: `temp-response-${Date.now()}`,
-            content: language === 'en' 
-              ? "You're currently offline. This message will be processed when you reconnect."
-              : "আপনি বর্তমানে অফলাইন আছেন। আপনি পুনরায় সংযোগ করলে এই বার্তাটি প্রক্রিয়া করা হবে।",
-            role: 'assistant'
-          }
-        ] as Message[])
-        
-        // Clear input manually since we're not using handleSubmit
-        handleInputChange({ target: { value: '' } } as React.ChangeEvent<HTMLTextAreaElement>)
-      }
-    }
-  }
-
-  // Retry sending a failed message from the UI
-  const retryFailedMessage = () => {
-    if (messageQueue.length > 0 && isOnline) {
-      processMessageQueue()
-    }
-  }
-
-  // Translation object based on selected language
-  const t = {
-    welcome: language === "en" ? "Hi 👋" : "হ্যালো 👋",
-    helpLine:
-      language === "en"
-        ? "How can I assist you today?"
-        : "আমি আজ আপনাকে কীভাবে সাহায্য করতে পারি?",
-    placeholder: language === "en" ? "What do you want to know?" : "আপনি কী জানতে চান?",
-    send: language === "en" ? "Send" : "পাঠান",
-    reset: language === "en" ? "Reset Conversation" : "কথোপকথন রিসেট করুন",
-    info: language === "en" ? "About" : "সম্পর্কে",
-    options: language === "en" ? "Options" : "বিকল্পসমূহ",
-    loadingDots: language === "en" ? "..." : "...",
-    searchPlaceholder: language === "en" ? "Search conversations..." : "কথোপকথন খুঁজুন...",
-    newChat: language === "en" ? "New Chat" : "নতুন চ্যাট",
-    pinnedChats: language === "en" ? "Pinned" : "পিন করা",
-    today: language === "en" ? "Today" : "আজ",
-    yesterday: language === "en" ? "Yesterday" : "গতকাল",
-    older: language === "en" ? "Older" : "পুরোনো",
-    noChats: language === "en" ? "No chats yet" : "এখনো কোন চ্যাট নেই",
-    edit: language === "en" ? "Edit" : "সম্পাদনা",
-    delete: language === "en" ? "Delete" : "মুছুন",
-    pin: language === "en" ? "Pin" : "পিন",
-    unpin: language === "en" ? "Unpin" : "আনপিন",
-    share: language === "en" ? "Share" : "শেয়ার",
-    stopVoice: language === "en" ? "Stop Recording" : "রেকর্ডিং বন্ধ করুন",
-    tryAsking: language === "en" ? "Try asking about" : "সম্পর্কে জিজ্ঞাসা করুন",
-    regenerate: language === "en" ? "Regenerate" : "পুনঃতৈরি",
-    generateImage: language === "en" ? "Generate an image" : "একটি ছবি তৈরি করুন",
-    deepsearch: language === "en" ? "DeepSearch" : "ডিপসার্চ",
-    think: language === "en" ? "Think" : "ভাবুন",
-    browsing: language === "en" ? "Browsing" : "ব্রাউজিং",
-    terms: language === "en" ? "By using this service, you agree to our Terms of Service and Privacy Policy" : "এই পরিষেবা ব্যবহার করে, আপনি আমাদের পরিষেবার শর্তাবলী এবং গোপনীয়তা নীতি মেনে নিচ্ছেন",
-    you: language === "en" ? "You" : "আপনি",
-    ai: language === "en" ? "Onnesha AI" : "অন্বেষা এআই",
-    searching: language === "en" ? "Searching the web for the latest information..." : "সর্বশেষ তথ্যের জন্য ওয়েব অনুসন্ধান করছি...",
-  }
-
   const handleVoiceInputToggle = () => {
     setIsVoiceInputActive(!isVoiceInputActive)
   }
 
   const actions = [
-    { icon: <BookOpen size={18} />, text: t.deepsearch },
-    { icon: <HelpCircle size={18} />, text: t.think },
-    { icon: <BarChart3 size={18} />, text: t.deepsearch },
-    { icon: <Image size={18} />, text: t.generateImage },
-    { icon: <Code size={18} />, text: t.placeholder },
+    { icon: <Search size={18} />, text: t.deepsearch },
+    { icon: <BrainCircuit size={18} />, text: t.think },
+    { icon: <BookOpen size={18} />, text: t.research },
+    { icon: <HelpCircle size={18} />, text: t.howto },
+    { icon: <LineChart size={18} />, text: t.analyze },
+    { icon: <Code size={18} />, text: t.code },
   ]
 
   const createNewChat = () => {
@@ -411,32 +471,77 @@ export default function ChatPage() {
     setActiveChatId(null)
   }
 
-  // Choose animation settings based on device capabilities
-  const getAnimationSettings = () => {
-    if (isLowEndDevice) {
-      // Simplified animations for low-end devices
-      return {
-        initial: { opacity: 0 },
-        animate: { opacity: 1 },
-        exit: { opacity: 0 },
-        transition: { duration: 0.2 }
-      }
-    }
-    
-    // Full animations for capable devices
-    return {
-      initial: { opacity: 0, y: 20 },
-      animate: { opacity: 1, y: 0 },
-      exit: { opacity: 0, y: -20 },
-      transition: { 
-        type: "spring", 
-        stiffness: 500, 
-        damping: 30 
-      }
-    }
-  }
-  
   const messageAnimationProps = getAnimationSettings()
+
+  // Add back the network monitoring code which was removed
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Try to send queued messages when back online
+      processMessageQueue();
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [processMessageQueue]);
+
+  // Auto-scroll to bottom when messages change - optimized version
+  useEffect(() => {
+    if (messages.length > 0 || isLoading) {
+      // Use requestAnimationFrame for smoother scrolling
+      const scrollToBottom = () => {
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ 
+            behavior: isLowEndDevice ? "auto" : "smooth" // Use auto for low-end devices
+          });
+        });
+      };
+      
+      // Small delay to ensure DOM is updated
+      const timeoutId = setTimeout(scrollToBottom, isLowEndDevice ? 0 : 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [messages, isLoading, isLowEndDevice]);
+
+  // Retry sending a failed message from the UI - optimized version
+  const retryFailedMessage = useCallback(() => {
+    if (messageQueue.length > 0 && isOnline) {
+      processMessageQueue();
+    }
+  }, [messageQueue.length, isOnline, processMessageQueue]);
+
+  // Optimize message display by using windowing for large message counts
+  const messageElements = useMemo(() => {
+    // Only create message elements when they change
+    return messages.map((message, index) => (
+      <motion.div
+        key={message.id}
+        {...messageAnimationProps}
+        transition={{
+          ...messageAnimationProps.transition,
+          delay: shouldAnimate ? Math.min(index * 0.03, 0.3) : 0, // Cap delay at 300ms
+        }}
+        className="w-full"
+      >
+        <EnhancedChatMessage
+          message={message}
+          language={language}
+          onRegenerate={message.role === "assistant" ? handleRegenerateMessage : undefined}
+          onCopy={handleCopyMessage}
+          isLastMessage={index === messages.length - 1 && message.role === "assistant"}
+        />
+      </motion.div>
+    ));
+  }, [messages, messageAnimationProps, shouldAnimate, language, handleRegenerateMessage, handleCopyMessage]);
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden">
@@ -533,25 +638,7 @@ export default function ChatPage() {
                     </AnimatePresence>
 
                     <AnimatePresence initial={false}>
-                      {messages.map((message, index) => (
-                        <motion.div
-                          key={message.id}
-                          {...messageAnimationProps}
-                          transition={{
-                            ...messageAnimationProps.transition,
-                            delay: isLowEndDevice ? 0 : index * 0.05,
-                          }}
-                          className="w-full"
-                        >
-                          <EnhancedChatMessage
-                            message={message}
-                            language={language}
-                            onRegenerate={message.role === "assistant" ? handleRegenerateMessage : undefined}
-                            onCopy={handleCopyMessage}
-                            isLastMessage={index === messages.length - 1 && message.role === "assistant"}
-                          />
-                        </motion.div>
-                      ))}
+                      {messageElements}
                     </AnimatePresence>
 
                     {isLoading && (

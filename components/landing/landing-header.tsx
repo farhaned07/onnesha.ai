@@ -44,8 +44,8 @@ export default function LandingHeader({ language, toggleLanguage }: LandingHeade
       pricing: "Pricing",
       resources: "Resources",
       company: "Company",
-      login: "Log in",
-      signup: "Sign up",
+      login: "Chat",
+      signup: "Get Started",
       productMenu: [
         { label: "Features", href: "/features" },
         { label: "AI Capabilities", href: "/capabilities" },
@@ -69,6 +69,9 @@ export default function LandingHeader({ language, toggleLanguage }: LandingHeade
         { label: "Careers", href: "/careers" },
         { label: "Contact", href: "/contact" },
       ],
+      chat: "Chat",
+      getStarted: "Get Started",
+      themeToggle: "Toggle theme",
     },
     bn: {
       product: "পণ্য",
@@ -76,8 +79,8 @@ export default function LandingHeader({ language, toggleLanguage }: LandingHeade
       pricing: "মূল্য",
       resources: "রিসোর্স",
       company: "কোম্পানি",
-      login: "লগ ইন",
-      signup: "সাইন আপ",
+      login: "চ্যাট",
+      signup: "শুরু করুন",
       productMenu: [
         { label: "বৈশিষ্ট্য", href: "/features" },
         { label: "এআই সক্ষমতা", href: "/capabilities" },
@@ -101,6 +104,9 @@ export default function LandingHeader({ language, toggleLanguage }: LandingHeade
         { label: "ক্যারিয়ার", href: "/careers" },
         { label: "যোগাযোগ", href: "/contact" },
       ],
+      chat: "চ্যাট",
+      getStarted: "শুরু করুন",
+      themeToggle: "থিম পরিবর্তন করুন",
     },
   }
 
@@ -198,11 +204,11 @@ export default function LandingHeader({ language, toggleLanguage }: LandingHeade
               <LanguageToggle language={language} toggleLanguage={toggleLanguage} />
 
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">{t.login}</Link>
+                <Link href="/chat">{t.chat}</Link>
               </Button>
 
               <Button size="sm" asChild>
-                <Link href="/signup">{t.signup}</Link>
+                <Link href="/chat">{t.signup}</Link>
               </Button>
             </div>
 
@@ -285,11 +291,11 @@ export default function LandingHeader({ language, toggleLanguage }: LandingHeade
 
                   <div className="flex flex-col gap-2 mt-2">
                     <Button variant="outline" size="sm" asChild>
-                      <Link href="/login">{t.login}</Link>
+                      <Link href="/chat">{t.chat}</Link>
                     </Button>
 
                     <Button size="sm" asChild>
-                      <Link href="/signup">{t.signup}</Link>
+                      <Link href="/chat">{t.signup}</Link>
                     </Button>
                   </div>
                 </div>

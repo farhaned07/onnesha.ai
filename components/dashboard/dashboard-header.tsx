@@ -15,8 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useState } from "react"
-import UserProfile from "@/components/user-profile"
 
 interface DashboardHeaderProps {
   language: "en" | "bn"
@@ -37,7 +35,6 @@ export default function DashboardHeader({
 }: DashboardHeaderProps) {
   const { theme } = useTheme()
   const router = useRouter()
-  const [showUserProfile, setShowUserProfile] = useState(false)
 
   const translations = {
     en: {
@@ -67,10 +64,6 @@ export default function DashboardHeader({
   const handleLogout = () => {
     // In a real app, you would handle logout logic here
     router.push("/")
-  }
-
-  const handleProfileClick = () => {
-    setShowUserProfile(true)
   }
 
   const handleNewChat = () => {
@@ -139,7 +132,7 @@ export default function DashboardHeader({
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>{t.title}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleProfileClick}>
+            <DropdownMenuItem>
               <User size={14} className="mr-2" />
               <span>{t.profile}</span>
             </DropdownMenuItem>
@@ -163,8 +156,6 @@ export default function DashboardHeader({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      {showUserProfile && <UserProfile language={language} onClose={() => setShowUserProfile(false)} />}
     </header>
   )
 }

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useChat } from "ai/react"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
 import {
   Settings,
@@ -12,18 +13,13 @@ import {
   BookOpen,
   HelpCircle,
   BarChart3,
-  Image,
   Code,
   Mic,
-  Paperclip,
   Crown,
   Menu,
   Globe,
-  LogIn,
-  UserPlus,
 } from "lucide-react"
 import EnhancedChatMessage from "@/components/enhanced-chat-message"
-import FileUpload from "@/components/file-upload"
 import PaymentModal from "@/components/payment-modal"
 import EnhancedTypingIndicator from "@/components/enhanced-typing-indicator"
 import VoiceInput from "@/components/voice-input"
@@ -32,21 +28,15 @@ import { useToast } from "@/hooks/use-toast"
 import { motion, AnimatePresence } from "framer-motion"
 import AutoResizeTextarea from "@/components/auto-resize-textarea"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import UserProfileButton from "@/components/user-profile-button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 export default function ChatPage() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
-  const [language, setLanguage] = useState<"en" | "bn">("en")
+  const [language, setLanguage] = useState<"en" | "bn">("bn")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showWelcome, setShowWelcome] = useState(true)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [showFileUpload, setShowFileUpload] = useState(false)
   const [isVoiceInputActive, setIsVoiceInputActive] = useState(false)
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
@@ -74,6 +64,10 @@ export default function ChatPage() {
         variant: "destructive",
       })
     },
+    onFinish: () => {
+      // Scroll to bottom when the response is complete
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }
   })
 
   // Auto-scroll to bottom when messages change
@@ -87,87 +81,6 @@ export default function ChatPage() {
 
   const toggleLanguage = () => {
     setLanguage(language === "en" ? "bn" : "en")
-  }
-
-  const handleFileSelect = (file: File) => {
-    setSelectedFile(file)
-  }
-
-  const handleFileClear = () => {
-    setSelectedFile(null)
-    setUploadProgress(0)
-  }
-
-  const handleFileUpload = async () => {
-    if (!selectedFile) return
-
-    setIsUploading(true)
-    let interval: NodeJS.Timeout
-
-    try {
-      // Create FormData
-      const formData = new FormData()
-      formData.append("file", selectedFile)
-      // No personality parameter needed
-
-      // Start progress simulation
-      interval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            return 90 // Hold at 90% until actual completion
-          }
-          return prev + 10
-        })
-      }, 300)
-
-      // Send file to API
-      const response = await fetch("/api/process-file", {
-        method: "POST",
-        body: formData,
-      })
-
-      clearInterval(interval)
-
-      if (!response.ok) {
-        throw new Error("Failed to process file")
-      }
-
-      const data = await response.json()
-      setUploadProgress(100)
-
-      // Add user message about the file
-      append({
-        role: "user",
-        content: `I've uploaded a file: ${selectedFile.name}. Can you help me analyze it?`,
-      })
-
-      // Add AI response with analysis
-      setTimeout(() => {
-        append({
-          role: "assistant",
-          content: data.analysis,
-        })
-
-        setSelectedFile(null)
-        setUploadProgress(0)
-        setShowFileUpload(false)
-        setIsUploading(false)
-      }, 500)
-    } catch (error) {
-      console.error("Error uploading file:", error)
-      clearInterval(interval)
-      setUploadProgress(0)
-      setIsUploading(false)
-
-      toast({
-        title: language === "en" ? "Error" : "ত্রুটি",
-        description:
-          language === "en"
-            ? "Failed to process the file. Please try again."
-            : "ফাইল প্রক্রিয়াকরণ ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।",
-        variant: "destructive",
-      })
-    }
   }
 
   const handlePromptSelect = (prompt: string) => {
@@ -213,9 +126,9 @@ export default function ChatPage() {
 
   const translations = {
     en: {
-      welcome: "Welcome to Onnesha.",
+      welcome: "HI! 👋",
       helpLine: "How can I help you today?",
-      placeholder: "What do you want to know?",
+      placeholder: "Ask me anything...",
       deepsearch: "DeepSearch",
       think: "Think",
       research: "Research",
@@ -226,14 +139,19 @@ export default function ChatPage() {
       terms: "By messaging Onnesha, you agree to our Terms and Privacy Policy.",
       clearChat: "Clear Chat",
       stopVoice: "Stop Voice Input",
-      signIn: "Sign in",
-      signUp: "Sign up",
       premium: "Premium subscription",
+      suggestions: [
+        "What's the weather like?",
+        "Help me with my homework",
+        "Write a story",
+        "Solve a math problem",
+        "Explain a concept"
+      ]
     },
     bn: {
-      welcome: "অন্বেষাতে স্বাগতম।",
-      helpLine: "আমি আপনাকে আজ কীভাবে সাহায্য করতে পারি?",
-      placeholder: "আপনি কী জানতে চান?",
+      welcome: "হ্যালো! 👋",
+      helpLine: "আপনাকে কীভাবে সাহায্য করতে পারি?",
+      placeholder: "যেকোনো কিছু জিজ্ঞেস করুন...",
       deepsearch: "ডিপসার্চ",
       think: "চিন্তা",
       research: "গবেষণা",
@@ -244,9 +162,14 @@ export default function ChatPage() {
       terms: "অন্বেষাকে মেসেজ করে, আপনি আমাদের শর্তাবলী এবং গোপনীয়তা নীতিতে সম্মত হচ্ছেন।",
       clearChat: "চ্যাট পরিষ্কার করুন",
       stopVoice: "ভয়েস ইনপুট বন্ধ করুন",
-      signIn: "সাইন ইন",
-      signUp: "সাইন আপ",
       premium: "প্রিমিয়াম সাবস্ক্রিপশন",
+      suggestions: [
+        "আবহাওয়া কেমন?",
+        "হোমওয়ার্কে সাহায্য করুন",
+        "একটি গল্প লিখুন",
+        "গণিত সমস্যা সমাধান করুন",
+        "একটি ধারণা ব্যাখ্যা করুন"
+      ]
     },
   }
 
@@ -262,10 +185,11 @@ export default function ChatPage() {
   }
 
   const actions = [
+    { icon: <Search size={18} />, text: t.deepsearch },
+    { icon: <Lightbulb size={18} />, text: t.think },
     { icon: <BookOpen size={18} />, text: t.research },
     { icon: <HelpCircle size={18} />, text: t.howto },
     { icon: <BarChart3 size={18} />, text: t.analyze },
-    { icon: <Image size={18} />, text: t.createImages },
     { icon: <Code size={18} />, text: t.code },
   ]
 
@@ -351,27 +275,7 @@ export default function ChatPage() {
               onClick={toggleLanguage}
               className="text-xs text-white/70 hover:text-white hover:bg-white/5 rounded-md px-1.5 md:px-2 h-7 md:h-8"
             >
-              {language === "en" ? "বাংলা" : "English"}
-            </Button>
-
-            {/* Sign in button - Clean, minimal */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-white/70 hover:text-white hover:bg-white/5 rounded-md px-2 md:px-3 h-7 md:h-8 hidden md:flex"
-              onClick={() => router.push("/sign-in")}
-            >
-              {t.signIn}
-            </Button>
-
-            {/* Sign up button - Subtle highlight */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs border border-white/10 bg-white/5 hover:bg-white/10 rounded-md px-2 md:px-3 h-7 md:h-8 hidden md:flex"
-              onClick={() => router.push("/sign-up")}
-            >
-              {t.signUp}
+              {language === "bn" ? "English" : "বাংলা"}
             </Button>
 
             {/* Mobile menu - Clean hamburger */}
@@ -387,19 +291,6 @@ export default function ChatPage() {
               </SheetTrigger>
               <SheetContent side="right" className="w-[280px] bg-[#1A1B1E] border-white/5 p-0">
                 <div className="flex flex-col h-full">
-                  {/* User section */}
-                  <div className="p-4 border-b border-white/5">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback className="bg-white/5 text-white/90 text-sm">JD</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium text-white/90">John Doe</p>
-                        <p className="text-xs text-white/50">john.doe@example.com</p>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Menu items */}
                   <div className="flex-1 overflow-auto py-2">
                     <div className="px-2 space-y-1">
@@ -436,39 +327,10 @@ export default function ChatPage() {
                         {t.premium}
                       </Button>
                     </div>
-
-                    <div className="mt-2 pt-2 border-t border-white/5">
-                      <div className="px-2 space-y-1">
-                        {/* Sign in */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start rounded-md h-9 text-sm text-white/70 hover:text-white"
-                          onClick={() => router.push("/sign-in")}
-                        >
-                          <LogIn size={16} className="mr-2 opacity-70" />
-                          {t.signIn}
-                        </Button>
-
-                        {/* Sign up */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start rounded-md h-9 text-sm text-white/70 hover:text-white"
-                          onClick={() => router.push("/sign-up")}
-                        >
-                          <UserPlus size={16} className="mr-2 opacity-70" />
-                          {t.signUp}
-                        </Button>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </SheetContent>
             </Sheet>
-
-            {/* User profile - Simple avatar */}
-            <UserProfileButton language={language} userName="John Doe" />
           </div>
         </div>
       </motion.header>
@@ -730,18 +592,6 @@ export default function ChatPage() {
                                 </Button>
                               </motion.div>
 
-                              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 md:h-8 md:w-8 rounded-full bg-white/5 hover:bg-white/10"
-                                  onClick={() => setShowFileUpload(!showFileUpload)}
-                                >
-                                  <Paperclip size={12} className="md:size-14" />
-                                </Button>
-                              </motion.div>
-
                               <motion.div
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
@@ -767,30 +617,6 @@ export default function ChatPage() {
                   </form>
                 </div>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* File upload area */}
-        <AnimatePresence>
-          {showFileUpload && (
-            <motion.div
-              className="fixed bottom-24 left-0 right-0 p-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            >
-              <div className="max-w-md mx-auto">
-                <FileUpload
-                  onFileSelect={handleFileSelect}
-                  onClear={handleFileClear}
-                  language={language}
-                  selectedFile={selectedFile}
-                  isUploading={isUploading}
-                  uploadProgress={uploadProgress}
-                />
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
